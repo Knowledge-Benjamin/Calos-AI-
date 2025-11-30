@@ -4,6 +4,7 @@ import intentService, { Intent } from './intentService';
 import dailyLogCreator from './actions/dailyLogCreator';
 import goalCreator from './actions/goalCreator';
 import reminderCreator from './actions/reminderCreator';
+import { generateBriefing } from './briefingService';
 import logger from '../utils/logger';
 
 export interface ChatResponse {
@@ -30,6 +31,28 @@ export class AIService {
 
             // Get conversation context
             const context = await conversationService.getContext(userId, currentSessionId);
+
+            // Check for briefing request
+            const lowerMessage = message.toLowerCase();
+            const isBriefingRequest = lowerMessage.includes('briefing') ||
+                lowerMessage.includes('summary') ||
+                (lowerMessage.includes('give') && lowerMessage.includes('update'));
+
+            if (isBriefingRequest && jwtToken) {
+                const briefing = await generateBriefing(userId, jwtToken);
+
+                // Save to conversation
+                await conversationService.storeMessage(userId, currentSessionId, 'user', message);
+                await conversationService.storeMessage(userId, currentSessionId, 'assistant', briefing);
+
+                logger.info('Briefing generated', { userId });
+
+                return {
+                    response: briefing,
+                    intent: 'briefing',
+                    sessionId: currentSessionId
+                };
+            }
 
             // Analyze intent if JWT token provided (enables task automation)
             let intentResult;

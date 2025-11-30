@@ -10,6 +10,11 @@ import fs from 'fs';
 // Import routes
 import chatRoutes from './routes/chat.routes';
 import voiceRoutes from './routes/voice.routes';
+import monitoringRoutes from './routes/monitoring.routes';
+import preferencesRoutes from './routes/preferences.routes';
+
+// Import monitoring scheduler
+import monitoringScheduler from './services/monitoringScheduler';
 
 // Import middleware
 import authMiddleware from './middleware/auth.middleware';
@@ -86,6 +91,8 @@ app.get('/', (req, res) => {
 // API Routes (protected)
 app.use('/api/ai/chat', authMiddleware, chatRoutes);
 app.use('/api/ai/voice', authMiddleware, voiceRoutes);
+app.use('/api/ai/monitoring', authMiddleware, monitoringRoutes);
+app.use('/api/ai', preferencesRoutes); // Includes Gmail OAuth callback (no auth required)
 
 // 404 handler
 app.use((req, res) => {
@@ -118,11 +125,19 @@ const server = app.listen(PORT, () => {
 ║                                            ║
 ╚════════════════════════════════════════════╝
     `);
+
+    // Start monitoring scheduler
+    monitoringScheduler.start();
+    logger.info('📧 Email & Social monitoring scheduler started');
 });
 
 // Graceful shutdown
 const gracefulShutdown = () => {
     logger.info('Shutting down gracefully...');
+
+    // Stop monitoring scheduler
+    monitoringScheduler.stop();
+
     server.close(() => {
         logger.info('Server closed');
         pool.end(() => {
